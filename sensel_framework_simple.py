@@ -54,9 +54,10 @@ class SenselGesture(object):
 		#self.movement_dist = None
 		self.has_started = False
 		self.state = GestureState.INITED
+		self.tracked_locations = [(down_x, down_y)]
 
 	def __str__(self):
-		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y)
+		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations"
 
 #########
 
@@ -159,6 +160,7 @@ class SenselGestureHandler(object):
 					if(curr_gesture.state == GestureState.MOVED or (delta_dist and delta_dist > MOE_STATIONARY)):
 						# EVENT: On Move
 						curr_gesture.state = GestureState.MOVED
+						curr_gesture.tracked_locations.append((avg_x, avg_y))
 						self.gestureEvent(curr_gesture)
 						#print("Gesture has moved: " + str(delta_dist))
 
