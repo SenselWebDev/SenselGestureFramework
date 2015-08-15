@@ -1,5 +1,4 @@
 # SenselGestureFramework
-Gesture framework for abstracting Sensel contact data.
 
 This framework currently supports TAP and PAN events with varying weight classes (pressure-based) and contact counts.
 
