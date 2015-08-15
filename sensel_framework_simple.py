@@ -108,7 +108,7 @@ class SenselGestureHandler(object):
 		# print(sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2))
 		return sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
 
-	def gestureEvent(self, gesture):
+	def gestureEvent(self, gesture, arg):
 		#print("You must implement this to recieve events")
 		if(gesture.state == GestureState.STARTED):
 			print("Started gesture: " + str(gesture) + " @ " + str(time.time()))
@@ -181,14 +181,14 @@ class SenselGestureHandler(object):
 							curr_gesture.weight_class = weight_class
 							# EVENT: On start
 							curr_gesture.state = GestureState.STARTED
-							self.gestureEvent(curr_gesture)
+							self.gestureEvent(curr_gesture, self.arg)
 							curr_gesture.has_started = True
 					# Modify to determine swipes vs taps by start call
 					if(curr_gesture.state == GestureState.MOVED or (delta_dist and delta_dist > MOE_STATIONARY)):
 						# EVENT: On Move
 						curr_gesture.state = GestureState.MOVED
 						curr_gesture.addLocation((avg_x, avg_y))
-						self.gestureEvent(curr_gesture)
+						self.gestureEvent(curr_gesture, self.arg)
 						#print("Gesture has moved: " + str(delta_dist))
 
 
@@ -207,10 +207,10 @@ class SenselGestureHandler(object):
 						# This can happen with quick taps
 						# EVENT: On Start
 						curr_gesture.state = GestureState.STARTED
-						self.gestureEvent(curr_gesture)
+						self.gestureEvent(curr_gesture, self.arg)
 					curr_gesture.state = GestureState.ENDED
 					# EVENT: On End
-					self.gestureEvent(curr_gesture)
+					self.gestureEvent(curr_gesture, self.arg)
 
 		sensel_device.stopScanning();
 		sensel_device.closeConnection();
