@@ -8,15 +8,18 @@ import sensel
 import time
 
 # Delay for events before triggering start call (s)
-START_DELAY = 0.02
+START_DELAY = 0.2
 
 # Margin of error for identifying a stationary point (mm)
 MOE_STATIONARY = 1.5
 
+# Required movement distance to be classified as a pan rather than a tap
+PAN_DIST = 3
+
 # Weight class maxiumums
 LIGHT_CLASS_MIN = 0
 MEDIUM_CLASS_MIN = 2500
-HEAVY_CLASS_MIN = 8000
+HEAVY_CLASS_MIN = 6000
 
 class WeightClass(Enum):
 	LIGHT = 0
@@ -26,7 +29,8 @@ class WeightClass(Enum):
 class GestureState(Enum):
 	INITED = 0
 	STARTED = 1
-	ENDED = 2
+	MOVED = 2
+	ENDED = 3
 
 class GestureType(Enum):
 	TAP = 0
@@ -35,7 +39,7 @@ class GestureType(Enum):
 #########
 
 def isActiveGesture(gesture):
-	return not (gesture == None or gesture.state == GestureState.ENDED)
+	return not gesture == None and not gesture.state == GestureState.ENDED
 
 class SenselGesture(object):
 	"""docstring for SenselGesture"""
@@ -45,12 +49,14 @@ class SenselGesture(object):
 		self.weight_class = weight_class
 		self.down_x = down_x
 		self.down_y = down_y
-		self.down_start_time = time.clock()
+		self.down_start_time = time.time()
 		self.gesture_type = None
+		#self.movement_dist = None
+		self.has_started = False
 		self.state = GestureState.INITED
 
 	def __str__(self):
-		return str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ")"
+		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y)
 
 #########
 
@@ -68,14 +74,22 @@ class SenselGestureHandler(object):
 		else:
 			return WeightClass.LIGHT
 
+	def euclideanDist(self, a, b):
+		# print(a)
+		# print(b)
+		# print(sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2))
+		return sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+
 	def gestureEvent(self, gesture):
 		#print("You must implement this to recieve events")
 		if(gesture.state == GestureState.STARTED):
-			print("Started gesture: " + str(gesture) + " @ " + str(time.clock()))
+			print("Started gesture: " + str(gesture) + " @ " + str(time.time()))
+		#elif(gesture.state == GestureState.MOVED):
+			#print("Gesture moved")
 		elif(gesture.state == GestureState.ENDED):
-			print("Gesture ended")
-		else:
-			print("Gesture Inited")
+			print("Gesture ended: " + str(gesture) + " @ " + str(time.time()))
+		#else:
+		#	print("Gesture Inited")
 
 	def start(self):
 		sensel_device = sensel.SenselDevice()
@@ -95,7 +109,7 @@ class SenselGestureHandler(object):
 
 		while True: 
 			contacts = sensel_device.readContacts()
-	  		#if(startGestureTimer): print(str(time.clock()))
+	  		#if(startGestureTimer): print(str(time.time()))
 			if contacts == None:
 				print("NO CONTACTS")
 				continue
@@ -118,31 +132,48 @@ class SenselGestureHandler(object):
 				avg_weight = sum_weight / len(contacts)
 				weight_class = self.getWeightClass(avg_weight)
 				#print(str(weight_class) + " " + str(avg_x) + " " + str(avg_y) + " " + str(avg_weight))
-				
 				if(isActiveGesture(curr_gesture)):
-					if(curr_gesture.state == GestureState.INITED):
+					#print(str(curr_gesture.gesture_type) + " " + str(curr_gesture.state) + " " + str(isActiveGesture(curr_gesture)))
+
+					delta_dist = self.euclideanDist((avg_x, avg_y), (curr_gesture.down_x, curr_gesture.down_y))
+					#print(delta_dist)
+					if(not curr_gesture.has_started):
+						#print("checking start delay: " + str(time.time()) + " - " + str(startGestureTimer) + " >=? " + str(START_DELAY) + " ... " + str(time.time() - startGestureTimer))
 						# If the elapsed time is greater than the delay time than start the gesture
-						if(time.clock() - startGestureTimer >= START_DELAY):
-							curr_gesture.state = GestureState.STARTED
+						if(time.time() - startGestureTimer >= START_DELAY):
+							# Set the type
+							#print("inside!!! " + str(delta_dist))
+							if(delta_dist >= PAN_DIST):
+								curr_gesture.gesture_type = GestureType.PAN
+								#print(curr_gesture.gesture_type)
+							else:
+								curr_gesture.gesture_type = GestureType.TAP
+							#curr_gesture.movement_dist = delta_dist
 							curr_gesture.contact_points = len(contacts)
 							curr_gesture.weight_class = weight_class
 							# EVENT: On start
+							curr_gesture.state = GestureState.STARTED
 							self.gestureEvent(curr_gesture)
-					delta_dist = sqrt((avg_x-curr_gesture.down_x)**2 + (avg_y-curr_gesture.down_y)**2)
+							curr_gesture.has_started = True
 					# Modify to determine swipes vs taps by start call
-					#if(delta_dist and delta_dist > MOE_STATIONARY):
+					if(curr_gesture.state == GestureState.MOVED or (delta_dist and delta_dist > MOE_STATIONARY)):
+						# EVENT: On Move
+						curr_gesture.state = GestureState.MOVED
+						self.gestureEvent(curr_gesture)
 						#print("Gesture has moved: " + str(delta_dist))
 
-						# EVENT: On Move
+
 				else:
 					# Init the new gesture
 					curr_gesture = SenselGesture(len(contacts), weight_class, avg_x, avg_y)
-					startGestureTimer = time.clock()
-					print("Inited gesture")
+					startGestureTimer = time.time()
+					#print("Inited gesture")
 			# No contacts remain, so end the gesture
 			else:
 				if(isActiveGesture(curr_gesture)):
-					if(curr_gesture.state == GestureState.INITED):
+					if(not curr_gesture.has_started):
+						# Default to taps here since the touch was so quick it triggered before the start
+						curr_gesture.gesture_type = GestureType.TAP
 						# Trigger a quick start call before the end call
 						# This can happen with quick taps
 						# EVENT: On Start
