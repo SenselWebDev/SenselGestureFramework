@@ -2,7 +2,7 @@
 # This Python library abstracts Sensel contact data into specific gesture events.
 # 
 
-from math import sqrt
+from math import *
 from enum import Enum
 import sensel
 import time
@@ -64,12 +64,14 @@ class SenselGesture(object):
 		self.addLocation((down_x, down_y))
 		self.ydirection = None
 		self.xdirection = None
+		self.angle = None # Radians
 
 	def addLocation(self, location):
 		self.tracked_locations.append(location)
 		if(len(self.tracked_locations) > 1):
 			delta_y = self.tracked_locations[0][1] - location[1]
 			delta_x = self.tracked_locations[0][0] - location[0]
+			self.angle = atan2(delta_y, -delta_x)
 			if(delta_y > 0):
 				self.ydirection = Direction.UP
 			else:
@@ -81,15 +83,16 @@ class SenselGesture(object):
 				self.xdirection = Direction.RIGHT
 
 	def __str__(self):
-		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations, " + str(self.xdirection) + " and " + str(self.ydirection)
+		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations, " + str(self.xdirection) + " and " + str(self.ydirection) + " at " + str(self.angle) + " radians"
 
 #########
 
 # Create a new SenselGestureHandler and call the start method to start listening for events
 class SenselGestureHandler(object):
 	"""docstring for SenselGestureHandler"""
-	def __init__(self):
+	def __init__(self, arg):
 		super(SenselGestureHandler, self).__init__()
+		self.arg = arg
 		
 	def getWeightClass(self, weight):
 		if(weight >= HEAVY_CLASS_MIN):
@@ -213,5 +216,5 @@ class SenselGestureHandler(object):
 		sensel_device.closeConnection();
 
 if __name__ == '__main__':
-	sgh = SenselGestureHandler()
+	sgh = SenselGestureHandler(None)
 	sgh.start()
