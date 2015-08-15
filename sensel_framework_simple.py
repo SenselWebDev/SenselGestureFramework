@@ -36,6 +36,12 @@ class GestureType(Enum):
 	TAP = 0
 	PAN = 1
 
+class Direction(Enum):
+	UP = 0
+	RIGHT = 1
+	DOWN = 2
+	LEFT = 3
+
 #########
 
 def isActiveGesture(gesture):
@@ -54,10 +60,28 @@ class SenselGesture(object):
 		#self.movement_dist = None
 		self.has_started = False
 		self.state = GestureState.INITED
-		self.tracked_locations = [(down_x, down_y)]
+		self.tracked_locations = []
+		self.addLocation((down_x, down_y))
+		self.ydirection = None
+		self.xdirection = None
+
+	def addLocation(self, location):
+		self.tracked_locations.append(location)
+		if(len(self.tracked_locations) > 1):
+			delta_y = self.tracked_locations[0][1] - location[1]
+			delta_x = self.tracked_locations[0][0] - location[0]
+			if(delta_y > 0):
+				self.ydirection = Direction.UP
+			else:
+				self.ydirection = Direction.DOWN
+
+			if(delta_x > 0):
+				self.xdirection = Direction.LEFT
+			else:
+				self.xdirection = Direction.RIGHT
 
 	def __str__(self):
-		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations"
+		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations, " + str(self.xdirection) + " and " + str(self.ydirection)
 
 #########
 
@@ -160,7 +184,7 @@ class SenselGestureHandler(object):
 					if(curr_gesture.state == GestureState.MOVED or (delta_dist and delta_dist > MOE_STATIONARY)):
 						# EVENT: On Move
 						curr_gesture.state = GestureState.MOVED
-						curr_gesture.tracked_locations.append((avg_x, avg_y))
+						curr_gesture.addLocation((avg_x, avg_y))
 						self.gestureEvent(curr_gesture)
 						#print("Gesture has moved: " + str(delta_dist))
 
