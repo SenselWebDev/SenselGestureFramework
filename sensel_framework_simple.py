@@ -47,6 +47,9 @@ class Direction(Enum):
 def isActiveGesture(gesture):
 	return not gesture == None and not gesture.state == GestureState.ENDED
 
+def convertToPixels(mm):
+	return mm * 5
+
 class SenselGesture(object):
 	"""docstring for SenselGesture"""
 	def __init__(self, contact_points, weight_class, down_x, down_y):
@@ -152,8 +155,8 @@ class SenselGestureHandler(object):
 				sum_y = 0
 				sum_weight = 0
 				for c in contacts:
-					sum_x += c.x_pos_mm
-					sum_y += c.y_pos_mm
+					sum_x += convertToPixels(c.x_pos_mm)
+					sum_y += convertToPixels(c.y_pos_mm)
 					sum_weight += c.total_force
 				avg_x = sum_x / len(contacts)
 				avg_y = sum_y / len(contacts)
