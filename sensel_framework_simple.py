@@ -50,6 +50,12 @@ def isActiveGesture(gesture):
 def convertToPixels(mm):
 	return mm * 5
 
+def euclideanDist(a, b):
+	# print(a)
+	# print(b)
+	# print(sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2))
+	return sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+
 class SenselGesture(object):
 	"""docstring for SenselGesture"""
 	def __init__(self, contact_points, weight_class, down_x, down_y):
@@ -67,7 +73,10 @@ class SenselGesture(object):
 		self.addLocation((down_x, down_y))
 		self.ydirection = None
 		self.xdirection = None
+		self.bestdirection = None
 		self.angle = None # Radians
+		self.xy_contacts = None
+		self.avg_location = None
 
 	def addLocation(self, location):
 		self.tracked_locations.append(location)
@@ -75,6 +84,15 @@ class SenselGesture(object):
 			delta_y = self.tracked_locations[0][1] - location[1]
 			delta_x = self.tracked_locations[0][0] - location[0]
 			self.angle = atan2(delta_y, -delta_x)
+			if(self.angle > pi/4 and self.angle <= 3*pi/4):
+				self.bestdirection = Direction.UP
+			elif(self.angle > -pi/4 and self.angle <= pi/4):
+				self.bestdirection = Direction.RIGHT
+			elif(self.angle > -3*pi/4 and self.angle <= -pi/4):
+				self.bestdirection = Direction.DOWN
+			else:
+				self.bestdirection = Direction.LEFT
+			
 			if(delta_y > 0):
 				self.ydirection = Direction.UP
 			else:
@@ -86,7 +104,7 @@ class SenselGesture(object):
 				self.xdirection = Direction.RIGHT
 
 	def __str__(self):
-		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations, " + str(self.xdirection) + " and " + str(self.ydirection) + " at " + str(self.angle) + " radians"
+		return str(self.gesture_type) + ": " + str(self.contact_points) + " fingers, " + str(self.weight_class) + ", state: " + str(self.state) + ", started @ (" + str(self.down_x) + ", " + str(self.down_y) + ", " + str(len(self.tracked_locations)) + " locations, " + str(self.xdirection) + " and " + str(self.ydirection) + ", best direction: " + str(self.bestdirection) + ", at " + str(self.angle) + " radians, " + str(self.xy_contacts)
 
 #########
 
@@ -104,12 +122,6 @@ class SenselGestureHandler(object):
 			return WeightClass.MEDIUM
 		else:
 			return WeightClass.LIGHT
-
-	def euclideanDist(self, a, b):
-		# print(a)
-		# print(b)
-		# print(sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2))
-		return sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
 
 	def gestureEvent(self, gesture, arg):
 		#print("You must implement this to recieve events")
@@ -150,13 +162,17 @@ class SenselGestureHandler(object):
 			avg_y = None
 			avg_weight = None
 			delta_dist = None
+			xy_contacts = []
 			if(len(contacts) > 0):
 				sum_x = 0
 				sum_y = 0
 				sum_weight = 0
 				for c in contacts:
-					sum_x += convertToPixels(c.x_pos_mm)
-					sum_y += convertToPixels(c.y_pos_mm)
+					x_px = convertToPixels(c.x_pos_mm)
+					sum_x += x_px
+					y_px = convertToPixels(c.y_pos_mm)
+					sum_y += y_px
+					xy_contacts.append((x_px, y_px))
 					sum_weight += c.total_force
 				avg_x = sum_x / len(contacts)
 				avg_y = sum_y / len(contacts)
@@ -165,8 +181,9 @@ class SenselGestureHandler(object):
 				#print(str(weight_class) + " " + str(avg_x) + " " + str(avg_y) + " " + str(avg_weight))
 				if(isActiveGesture(curr_gesture)):
 					#print(str(curr_gesture.gesture_type) + " " + str(curr_gesture.state) + " " + str(isActiveGesture(curr_gesture)))
-
-					delta_dist = self.euclideanDist((avg_x, avg_y), (curr_gesture.down_x, curr_gesture.down_y))
+					curr_gesture.xy_contacts = xy_contacts
+					delta_dist = euclideanDist((avg_x, avg_y), (curr_gesture.down_x, curr_gesture.down_y))
+					curr_gesture.avg_location = (avg_x, avg_y)
 					#print(delta_dist)
 					if(not curr_gesture.has_started):
 						#print("checking start delay: " + str(time.time()) + " - " + str(startGestureTimer) + " >=? " + str(START_DELAY) + " ... " + str(time.time() - startGestureTimer))
